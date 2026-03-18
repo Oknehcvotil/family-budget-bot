@@ -9,7 +9,10 @@ const allowedUserIds = (process.env.ALLOWED_USER_IDS || "")
   .filter(Boolean)
   .map(Number);
 
+const adminUserId = Number(process.env.ADMIN_USER_ID);
+
 module.exports = {
   users,
   allowedUserIds,
+  adminUserId,
 };

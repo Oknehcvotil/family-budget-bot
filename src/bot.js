@@ -8,6 +8,7 @@ const { registerReportHandlers } = require("./handlers/report");
 const { registerActionHandlers } = require("./handlers/actions");
 const { registerTextHandlers } = require("./handlers/text");
 const { registerLimitHandlers } = require("./handlers/limit");
+const { registerAdminHandlers } = require("./handlers/admin");
 
 function createBot() {
   if (!BOT_TOKEN) {
@@ -22,6 +23,7 @@ function createBot() {
   registerExpenseHandlers(bot);
   registerReportHandlers(bot);
   registerLimitHandlers(bot);
+  registerAdminHandlers(bot);
   registerActionHandlers(bot);
   registerTextHandlers(bot);
 

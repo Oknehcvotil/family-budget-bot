@@ -4,6 +4,7 @@ const { getExpenseInputHint } = require("../constants/messages");
 const { formatExpensePreview } = require("../utils/formatters");
 const { getDeleteConfirmKeyboard } = require("../keyboards/common");
 const { getLastUserExpense } = require("../services/expenseService");
+const { getMainMenuKeyboard } = require("../keyboards/menu");
 
 function registerExpenseHandlers(bot) {
   bot.command("add", (ctx) => {
@@ -12,10 +13,47 @@ function registerExpenseHandlers(bot) {
     }
 
     setUserState(ctx.from.id, { mode: "waiting_expense_input" });
-    return ctx.reply(getExpenseInputHint(getUserName(ctx)));
+    return ctx.reply(
+      getExpenseInputHint(getUserName(ctx)),
+      getMainMenuKeyboard(ctx.from.id),
+    );
+  });
+
+  bot.hears("Добавить расход", (ctx) => {
+    if (!userIsAllowed(ctx)) {
+      return ctx.reply("Доступ разрешен только владельцам.");
+    }
+
+    setUserState(ctx.from.id, { mode: "waiting_expense_input" });
+    return ctx.reply(
+      getExpenseInputHint(getUserName(ctx)),
+      getMainMenuKeyboard(ctx.from.id),
+    );
   });
 
   bot.command("delete", async (ctx) => {
+    if (!userIsAllowed(ctx)) {
+      return ctx.reply("Нет доступа");
+    }
+
+    try {
+      const lastExpense = await getLastUserExpense(ctx.from.id);
+
+      if (!lastExpense) {
+        return ctx.reply("❌ У тебя нет расходов для удаления");
+      }
+
+      return ctx.reply(
+        `Удалить этот расход?\n\n${formatExpensePreview(lastExpense)}`,
+        getDeleteConfirmKeyboard(lastExpense.id),
+      );
+    } catch (error) {
+      console.error("Ошибка при получении последнего расхода:", error);
+      return ctx.reply("❌ Ошибка при получении расхода");
+    }
+  });
+
+  bot.hears("Удалить", async (ctx) => {
     if (!userIsAllowed(ctx)) {
       return ctx.reply("Нет доступа");
     }

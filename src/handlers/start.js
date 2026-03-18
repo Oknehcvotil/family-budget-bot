@@ -1,5 +1,6 @@
 const { userIsAllowed, getUser } = require("../utils/auth");
 const { getStartMessage } = require("../constants/messages");
+const { getMainMenuKeyboard } = require("../keyboards/menu");
 
 function registerStartHandlers(bot) {
   bot.start((ctx) => {
@@ -9,7 +10,10 @@ function registerStartHandlers(bot) {
       return ctx.reply("Нет доступа");
     }
 
-    return ctx.reply(getStartMessage(user.name));
+    return ctx.reply(
+      getStartMessage(user.name),
+      getMainMenuKeyboard(ctx.from.id),
+    );
   });
 }
 

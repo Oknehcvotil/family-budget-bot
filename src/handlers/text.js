@@ -11,6 +11,7 @@ const {
   formatLimitStatusMessage,
 } = require("../services/limitService");
 const { getLimitKeyboard } = require("../keyboards/limit");
+const { getMainMenuKeyboard } = require("../keyboards/menu");
 
 function registerTextHandlers(bot) {
   bot.on("text", async (ctx) => {
@@ -98,6 +99,7 @@ ${formatLimitStatusMessage(status)}`,
 150
 или
 150 кофе`,
+      getMainMenuKeyboard(ctx.from.id),
     );
   });
 }

@@ -26,6 +26,24 @@ function registerLimitHandlers(bot) {
     }
   });
 
+  bot.hears("Лимит", async (ctx) => {
+    if (!userIsAllowed(ctx)) {
+      return ctx.reply("Нет доступа");
+    }
+
+    try {
+      const status = await getCurrentMonthLimitStatus();
+
+      return ctx.reply(
+        formatLimitStatusMessage(status),
+        getLimitKeyboard(status.limitAmount !== null),
+      );
+    } catch (error) {
+      console.error("Ошибка при получении лимита:", error);
+      return ctx.reply("Ошибка при получении лимита.");
+    }
+  });
+
   bot.action("set_month_limit", async (ctx) => {
     if (!userIsAllowed(ctx)) {
       return ctx.answerCbQuery("Нет доступа");

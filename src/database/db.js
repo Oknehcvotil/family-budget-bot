@@ -334,6 +334,21 @@ function deleteMonthlyLimit(monthKey) {
   });
 }
 
+function clearAllData() {
+  return new Promise((resolve, reject) => {
+    db.serialize(() => {
+      db.run(`DELETE FROM expenses`, function (err) {
+        if (err) return reject(err);
+        const deletedExpenses = this.changes;
+        db.run(`DELETE FROM monthly_limits`, function (err2) {
+          if (err2) return reject(err2);
+          resolve({ deletedExpenses, deletedLimits: this.changes });
+        });
+      });
+    });
+  });
+}
+
 module.exports = {
   addExpense,
   getLastExpense,
@@ -351,4 +366,5 @@ module.exports = {
   getMonthlyLimit,
   setMonthlyLimit,
   deleteMonthlyLimit,
+  clearAllData,
 };
