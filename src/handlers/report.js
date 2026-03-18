@@ -1,17 +1,14 @@
 const { getAvailableYears } = require("../database/db");
 const { userIsAllowed } = require("../utils/auth");
+const { setUserState } = require("../state/userState");
 const {
   getStartOfToday,
   getStartOfTomorrow,
   getStartOfWeek,
   getStartOfNextWeek,
 } = require("../utils/date");
-const {
-  sendPeriodReport,
-  sendAllTimeReport,
-} = require("../services/reportService");
-const { setUserState } = require("../state/userState");
 const { getYearsKeyboard } = require("../keyboards/report");
+const { getReportTypeKeyboard } = require("../keyboards/reportType");
 
 function registerReportHandlers(bot) {
   bot.command("today", async (ctx) => {
@@ -19,11 +16,17 @@ function registerReportHandlers(bot) {
       return ctx.reply("Нет доступа");
     }
 
-    await sendPeriodReport(
-      ctx,
-      "за сегодня",
-      getStartOfToday(),
-      getStartOfTomorrow(),
+    setUserState(ctx.from.id, {
+      mode: "choosing_report_type",
+      reportAction: "today",
+      label: "за сегодня",
+      startDate: getStartOfToday(),
+      endDate: getStartOfTomorrow(),
+    });
+
+    return ctx.reply(
+      "Выбери формат отчета за сегодня:",
+      getReportTypeKeyboard("today"),
     );
   });
 
@@ -32,11 +35,17 @@ function registerReportHandlers(bot) {
       return ctx.reply("Нет доступа");
     }
 
-    await sendPeriodReport(
-      ctx,
-      "за неделю",
-      getStartOfWeek(),
-      getStartOfNextWeek(),
+    setUserState(ctx.from.id, {
+      mode: "choosing_report_type",
+      reportAction: "week",
+      label: "за неделю",
+      startDate: getStartOfWeek(),
+      endDate: getStartOfNextWeek(),
+    });
+
+    return ctx.reply(
+      "Выбери формат отчета за неделю:",
+      getReportTypeKeyboard("week"),
     );
   });
 
@@ -45,7 +54,9 @@ function registerReportHandlers(bot) {
       return ctx.reply("Нет доступа");
     }
 
-    setUserState(ctx.from.id, { mode: "month_select" });
+    setUserState(ctx.from.id, {
+      mode: "month_select",
+    });
 
     const years = await getAvailableYears();
 
@@ -55,7 +66,7 @@ function registerReportHandlers(bot) {
 
     return ctx.reply(
       "Выбери год для отчета по месяцам:",
-      await getYearsKeyboard("pick_month_year", getAvailableYears),
+      await getYearsKeyboard("pick_month_year"),
     );
   });
 
@@ -64,7 +75,9 @@ function registerReportHandlers(bot) {
       return ctx.reply("Нет доступа");
     }
 
-    setUserState(ctx.from.id, { mode: "year_select" });
+    setUserState(ctx.from.id, {
+      mode: "year_select",
+    });
 
     const years = await getAvailableYears();
 
@@ -74,7 +87,7 @@ function registerReportHandlers(bot) {
 
     return ctx.reply(
       "Выбери год для отчета:",
-      await getYearsKeyboard("pick_year", getAvailableYears),
+      await getYearsKeyboard("pick_year"),
     );
   });
 
@@ -83,7 +96,15 @@ function registerReportHandlers(bot) {
       return ctx.reply("Нет доступа");
     }
 
-    await sendAllTimeReport(ctx);
+    setUserState(ctx.from.id, {
+      mode: "choosing_report_type",
+      reportAction: "all",
+    });
+
+    return ctx.reply(
+      "Выбери формат отчета за все время:",
+      getReportTypeKeyboard("all"),
+    );
   });
 }
 

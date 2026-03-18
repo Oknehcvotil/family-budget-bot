@@ -4,7 +4,6 @@ const { categoryMap } = require("../config/categories");
 const { userIsAllowed, getUser, getActionWord } = require("../utils/auth");
 const { getMonthRange, getYearRange } = require("../utils/date");
 const { formatExpensePreview } = require("../utils/formatters");
-const { sendPeriodReport } = require("../services/reportService");
 const {
   createExpense,
   getUserExpenseById,
@@ -16,11 +15,15 @@ const {
   clearUserState,
 } = require("../state/userState");
 const { getYearsKeyboard, getMonthsKeyboard } = require("../keyboards/report");
-const {
-  getCategoryKeyboard,
-  getUndoKeyboard,
-} = require("../keyboards/expense");
+const { getUndoKeyboard } = require("../keyboards/expense");
 const { getDeleteConfirmKeyboard } = require("../keyboards/common");
+const {
+  sendFullPeriodReport,
+  sendShortPeriodReport,
+  sendFullAllTimeReport,
+  sendShortAllTimeReport,
+} = require("../services/reportService");
+const { getReportTypeKeyboard } = require("../keyboards/reportType");
 
 function registerActionHandlers(bot) {
   bot.action("cancel_selection", async (ctx) => {
@@ -70,7 +73,7 @@ function registerActionHandlers(bot) {
 
     return ctx.editMessageText(
       "Выбери год для отчета по месяцам:",
-      await getYearsKeyboard("pick_month_year", getAvailableYears),
+      await getYearsKeyboard("pick_month_year"),
     );
   });
 
@@ -86,11 +89,19 @@ function registerActionHandlers(bot) {
       return ctx.answerCbQuery("Неверный год");
     }
 
-    clearUserState(ctx.from.id);
-    await ctx.answerCbQuery(`Отчет за ${year}`);
-    await ctx.editMessageText(`Выбран год: ${year}`);
+    setUserState(ctx.from.id, {
+      mode: "choosing_report_type",
+      reportAction: "year",
+      label: `за ${year} год`,
+      startDate: range.start,
+      endDate: range.end,
+    });
 
-    return sendPeriodReport(ctx, `за ${year} год`, range.start, range.end);
+    await ctx.answerCbQuery(`Год ${year}`);
+    return ctx.editMessageText(
+      `Выбран год: ${year}\n\nВыбери формат отчета:`,
+      getReportTypeKeyboard("year"),
+    );
   });
 
   bot.action(/^pick_month_year:(\d{4})$/, async (ctx) => {
@@ -125,17 +136,20 @@ function registerActionHandlers(bot) {
       return ctx.answerCbQuery("Неверный месяц");
     }
 
-    clearUserState(ctx.from.id);
-
     const monthName = monthNames[month];
-    await ctx.answerCbQuery(`${monthName} ${year}`);
-    await ctx.editMessageText(`Выбран период: ${monthName} ${year}`);
 
-    return sendPeriodReport(
-      ctx,
-      `за ${monthName.toLowerCase()} ${year}`,
-      range.start,
-      range.end,
+    setUserState(ctx.from.id, {
+      mode: "choosing_report_type",
+      reportAction: "month",
+      label: `за ${monthName.toLowerCase()} ${year}`,
+      startDate: range.start,
+      endDate: range.end,
+    });
+
+    await ctx.answerCbQuery(`${monthName} ${year}`);
+    return ctx.editMessageText(
+      `Выбран период: ${monthName} ${year}\n\nВыбери формат отчета:`,
+      getReportTypeKeyboard("month"),
     );
   });
 
@@ -239,6 +253,55 @@ function registerActionHandlers(bot) {
       return ctx.answerCbQuery("Ошибка удаления");
     }
   });
+
+  bot.action(
+    /^report_type:(today|week|month|year|all):(full|short)$/,
+    async (ctx) => {
+      if (!userIsAllowed(ctx)) {
+        return ctx.answerCbQuery("Нет доступа");
+      }
+
+      const action = ctx.match[1];
+      const reportType = ctx.match[2];
+      const state = getUserState(ctx.from.id);
+
+      if (!state || state.mode !== "choosing_report_type") {
+        return ctx.answerCbQuery("Сначала выбери отчет заново");
+      }
+
+      await ctx.answerCbQuery(
+        reportType === "full" ? "Полный отчет" : "Короткий отчет",
+      );
+
+      if (action === "all") {
+        clearUserState(ctx.from.id);
+
+        await ctx.editMessageText(
+          `Выбран формат: ${reportType === "full" ? "полный" : "короткий"}`,
+        );
+
+        if (reportType === "full") {
+          return sendFullAllTimeReport(ctx);
+        }
+
+        return sendShortAllTimeReport(ctx);
+      }
+
+      const { label, startDate, endDate } = state;
+
+      clearUserState(ctx.from.id);
+
+      await ctx.editMessageText(
+        `Выбран формат: ${reportType === "full" ? "полный" : "короткий"}`,
+      );
+
+      if (reportType === "full") {
+        return sendFullPeriodReport(ctx, label, startDate, endDate);
+      }
+
+      return sendShortPeriodReport(ctx, label, startDate, endDate);
+    },
+  );
 }
 
 module.exports = { registerActionHandlers };

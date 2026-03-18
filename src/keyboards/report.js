@@ -1,6 +1,7 @@
 const { Markup } = require("telegraf");
+const { getAvailableYears } = require("../database/db");
 
-async function getYearsKeyboard(prefix, getAvailableYears) {
+async function getYearsKeyboard(prefix) {
   const years = await getAvailableYears();
 
   if (!years.length) {

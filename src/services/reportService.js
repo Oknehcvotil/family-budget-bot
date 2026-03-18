@@ -16,17 +16,45 @@ const {
   formatUserStats,
 } = require("../utils/formatters");
 
-async function sendPeriodReport(ctx, label, startDate, endDate) {
-  try {
-    const start = formatDateForDb(startDate);
-    const end = formatDateForDb(endDate);
+async function getPeriodReportData(startDate, endDate) {
+  const start = formatDateForDb(startDate);
+  const end = formatDateForDb(endDate);
 
-    const [expenses, total, categoryStats, userStats] = await Promise.all([
-      getExpensesByPeriod(start, end),
-      getTotalByPeriod(start, end),
-      getCategoryStatsByPeriod(start, end),
-      getUserStatsByPeriod(start, end),
-    ]);
+  const [expenses, total, categoryStats, userStats] = await Promise.all([
+    getExpensesByPeriod(start, end),
+    getTotalByPeriod(start, end),
+    getCategoryStatsByPeriod(start, end),
+    getUserStatsByPeriod(start, end),
+  ]);
+
+  return {
+    expenses,
+    total,
+    categoryStats,
+    userStats,
+  };
+}
+
+async function getAllTimeReportData() {
+  const [expenses, total, categoryStats, userStats] = await Promise.all([
+    getAllExpenses(),
+    getAllTotal(),
+    getAllCategoryStats(),
+    getAllUserStats(),
+  ]);
+
+  return {
+    expenses,
+    total,
+    categoryStats,
+    userStats,
+  };
+}
+
+async function sendFullPeriodReport(ctx, label, startDate, endDate) {
+  try {
+    const { expenses, total, categoryStats, userStats } =
+      await getPeriodReportData(startDate, endDate);
 
     const message =
       `📊 Отчет ${label}\n\n` +
@@ -37,19 +65,35 @@ async function sendPeriodReport(ctx, label, startDate, endDate) {
 
     return ctx.reply(message);
   } catch (error) {
-    console.error("Ошибка при получении отчета:", error);
+    console.error("Ошибка при получении полного отчета:", error);
     return ctx.reply("Ошибка при получении отчета.");
   }
 }
 
-async function sendAllTimeReport(ctx) {
+async function sendShortPeriodReport(ctx, label, startDate, endDate) {
   try {
-    const [expenses, total, categoryStats, userStats] = await Promise.all([
-      getAllExpenses(),
-      getAllTotal(),
-      getAllCategoryStats(),
-      getAllUserStats(),
-    ]);
+    const { total, categoryStats, userStats } = await getPeriodReportData(
+      startDate,
+      endDate,
+    );
+
+    const message =
+      `📊 Короткий отчет ${label}\n\n` +
+      `💰 Всего: ${total} €\n\n` +
+      `👤 По людям:\n${formatUserStats(userStats)}\n\n` +
+      `📂 По категориям:\n${formatCategoryStats(categoryStats)}`;
+
+    return ctx.reply(message);
+  } catch (error) {
+    console.error("Ошибка при получении короткого отчета:", error);
+    return ctx.reply("Ошибка при получении отчета.");
+  }
+}
+
+async function sendFullAllTimeReport(ctx) {
+  try {
+    const { expenses, total, categoryStats, userStats } =
+      await getAllTimeReportData();
 
     const message =
       `📊 Отчет за все время\n\n` +
@@ -60,12 +104,31 @@ async function sendAllTimeReport(ctx) {
 
     return ctx.reply(message);
   } catch (error) {
-    console.error("Ошибка при получении отчета за все время:", error);
+    console.error("Ошибка при получении полного отчета за все время:", error);
+    return ctx.reply("Ошибка при получении отчета.");
+  }
+}
+
+async function sendShortAllTimeReport(ctx) {
+  try {
+    const { total, categoryStats, userStats } = await getAllTimeReportData();
+
+    const message =
+      `📊 Короткий отчет за все время\n\n` +
+      `💰 Всего: ${total} €\n\n` +
+      `👤 По людям:\n${formatUserStats(userStats)}\n\n` +
+      `📂 По категориям:\n${formatCategoryStats(categoryStats)}`;
+
+    return ctx.reply(message);
+  } catch (error) {
+    console.error("Ошибка при получении короткого отчета за все время:", error);
     return ctx.reply("Ошибка при получении отчета.");
   }
 }
 
 module.exports = {
-  sendPeriodReport,
-  sendAllTimeReport,
+  sendFullPeriodReport,
+  sendShortPeriodReport,
+  sendFullAllTimeReport,
+  sendShortAllTimeReport,
 };
