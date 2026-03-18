@@ -33,14 +33,18 @@ const allowedUserIds = (process.env.ALLOWED_USER_IDS || "")
   .filter(Boolean)
   .map(Number);
 
-const allowedCategories = {
-  квартира: "Квартира",
-  коммунальные: "Коммунальные",
-  развлечения: "Развлечения",
-  продукты: "Продукты",
-  одежда: "Одежда",
-  разное: "Разное",
-};
+const categories = [
+  { key: "apartment", label: "Квартира" },
+  { key: "utilities", label: "Коммунальные" },
+  { key: "fun", label: "Развлечения" },
+  { key: "products", label: "Продукты" },
+  { key: "clothes", label: "Одежда" },
+  { key: "other", label: "Разное" },
+];
+
+const categoryMap = Object.fromEntries(
+  categories.map((category) => [category.key, category.label]),
+);
 
 const monthNames = {
   1: "Январь",
@@ -57,23 +61,7 @@ const monthNames = {
   12: "Декабрь",
 };
 
-function getSelectableYears() {
-  const startYear = 2024; 
-  const currentYear = new Date().getFullYear();
-  const endYear = currentYear + 1; 
-
-  const years = [];
-
-  for (let year = startYear; year <= endYear; year++) {
-    years.push(year);
-  }
-
-  return years;
-}
-
-const categoriesHint = Object.values(allowedCategories)
-  .map((category) => `• ${category}`)
-  .join("\n");
+const categoriesHint = categories.map((item) => `• ${item.label}`).join("\n");
 
 const userStates = {};
 
@@ -95,12 +83,6 @@ function userIsAllowed(ctx) {
   const userId = ctx.from?.id;
   if (!userId) return false;
   return allowedUserIds.includes(userId);
-}
-
-function normalizeCategory(input) {
-  if (!input) return null;
-  const key = input.trim().toLowerCase();
-  return allowedCategories[key] || null;
 }
 
 function formatDateForDb(date) {
@@ -209,15 +191,12 @@ function formatUserStats(stats) {
 }
 
 function getExpenseInputHint(userName) {
-  return `${userName}, введите расход в формате:
+  return `${userName}, введите сумму и комментарий (необязательно).
 
-150 продукты
-230 развлечения кино
-900 квартира аренда
-45 разное такси
-
-Доступные категории:
-${categoriesHint}`;
+Примеры:
+150
+150 кофе
+45 такси домой`;
 }
 
 async function getYearsKeyboard(prefix) {
@@ -269,6 +248,24 @@ function getMonthsKeyboard(year) {
       Markup.button.callback("⬅️ Назад к годам", "back_to_month_years"),
       Markup.button.callback("❌ Отмена", "cancel_selection"),
     ],
+  ]);
+}
+
+function getCategoryKeyboard() {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback("Квартира", "pick_category:apartment"),
+      Markup.button.callback("Коммунальные", "pick_category:utilities"),
+    ],
+    [
+      Markup.button.callback("Развлечения", "pick_category:fun"),
+      Markup.button.callback("Продукты", "pick_category:products"),
+    ],
+    [
+      Markup.button.callback("Одежда", "pick_category:clothes"),
+      Markup.button.callback("Разное", "pick_category:other"),
+    ],
+    [Markup.button.callback("❌ Отмена", "cancel_expense_add")],
   ]);
 }
 
@@ -344,12 +341,12 @@ bot.start((ctx) => {
 /all - отчет за все время
 /help - справка
 
-Формат ввода:
-150 продукты
-230 развлечения кофе
-900 квартира аренда
+Как добавить расход:
+1. Нажми /add
+2. Введи сумму и комментарий
+3. Выбери категорию кнопкой
 
-Доступные категории:
+Категории:
 ${categoriesHint}`,
   );
 });
@@ -374,7 +371,10 @@ bot.help((ctx) => {
 /year_select - выбрать год кнопками
 /all - отчет за все время
 
-${getExpenseInputHint(userName)}`,
+${getExpenseInputHint(userName)}
+
+Категории:
+${categoriesHint}`,
   );
 });
 
@@ -382,6 +382,8 @@ bot.command("add", (ctx) => {
   if (!userIsAllowed(ctx)) {
     return ctx.reply("Доступ разрешен только владельцам.");
   }
+
+  userStates[ctx.from.id] = { mode: "waiting_expense_input" };
 
   return ctx.reply(getExpenseInputHint(getUserName(ctx)));
 });
@@ -492,6 +494,16 @@ bot.action("cancel_selection", async (ctx) => {
   return ctx.editMessageText("Выбор отменен.");
 });
 
+bot.action("cancel_expense_add", async (ctx) => {
+  if (!userIsAllowed(ctx)) {
+    return ctx.answerCbQuery("Нет доступа");
+  }
+
+  delete userStates[ctx.from.id];
+  await ctx.answerCbQuery("Отменено");
+  return ctx.editMessageText("Добавление расхода отменено.");
+});
+
 bot.action("back_to_month_years", async (ctx) => {
   if (!userIsAllowed(ctx)) {
     return ctx.answerCbQuery("Нет доступа");
@@ -569,12 +581,64 @@ bot.action(/^pick_month:(\d{4}):(\d{1,2})$/, async (ctx) => {
   const monthName = monthNames[month];
   await ctx.answerCbQuery(`${monthName} ${year}`);
   await ctx.editMessageText(`Выбран период: ${monthName} ${year}`);
+
   return sendPeriodReport(
     ctx,
     `за ${monthName.toLowerCase()} ${year}`,
     range.start,
     range.end,
   );
+});
+
+bot.action(/^pick_category:(.+)$/, async (ctx) => {
+  if (!userIsAllowed(ctx)) {
+    return ctx.answerCbQuery("Нет доступа");
+  }
+
+  const categoryKey = ctx.match[1];
+  const categoryLabel = categoryMap[categoryKey];
+  const state = userStates[ctx.from.id];
+
+  if (!categoryLabel) {
+    return ctx.answerCbQuery("Неверная категория");
+  }
+
+  if (!state || state.mode !== "waiting_category" || !state.pendingExpense) {
+    return ctx.answerCbQuery("Сначала нажми /add");
+  }
+
+  const user = getUser(ctx);
+  const userName = user?.name || "Пользователь";
+  const actionWord = getActionWord(user);
+
+  const { amount, comment } = state.pendingExpense;
+
+  try {
+    await addExpense({
+      userId: ctx.from.id,
+      userName,
+      amount,
+      category: categoryLabel,
+      comment,
+      createdAt: new Date().toISOString(),
+    });
+
+    delete userStates[ctx.from.id];
+
+    await ctx.answerCbQuery(`Категория: ${categoryLabel}`);
+    await ctx.editMessageText(`Выбрана категория: ${categoryLabel}`);
+
+    const commentText = comment ? `\n📝 Комментарий: ${comment}` : "";
+
+    return ctx.reply(
+      `${userName} ${actionWord} расход:
+💰 Сумма: ${amount} €
+📂 Категория: ${categoryLabel}${commentText}`,
+    );
+  } catch (error) {
+    console.error("Ошибка при сохранении расхода:", error);
+    return ctx.reply("Ошибка при сохранении расхода.");
+  }
 });
 
 bot.on("text", async (ctx) => {
@@ -590,63 +654,55 @@ bot.on("text", async (ctx) => {
 
   const user = getUser(ctx);
   const userName = user?.name || "Пользователь";
-  const actionWord = getActionWord(user);
+  const state = userStates[ctx.from.id];
 
-  const parts = text.split(/\s+/);
-  const amount = Number(parts[0]);
-  const rawCategory = parts[1];
-  const category = normalizeCategory(rawCategory);
-  const comment = parts.length > 2 ? parts.slice(2).join(" ") : "";
+  if (state?.mode === "waiting_expense_input") {
+    const parts = text.split(/\s+/);
+    const amount = Number(parts[0]);
+    const comment = parts.length > 1 ? parts.slice(1).join(" ") : "";
 
-  if (Number.isNaN(amount) || amount <= 0 || parts.length < 2) {
-    return ctx.reply(
-      `${userName}, не узнал формат.
-
-Введите так:
-150 продукты
-или
-230 развлечения кофе
-
-Доступные категории:
-${categoriesHint}`,
-    );
-  }
-
-  if (!category) {
-    return ctx.reply(
-      `${userName}, такой категории нет.
-
-Доступные категории:
-${categoriesHint}
+    if (Number.isNaN(amount) || amount <= 0) {
+      return ctx.reply(
+        `${userName}, не узнал сумму.
 
 Примеры:
-150 продукты молоко
-230 развлечения кино
-45 разное такси`,
-    );
-  }
+150
+150 кофе
+45 такси домой`,
+      );
+    }
 
-  try {
-    await addExpense({
-      userId: ctx.from.id,
-      userName,
-      amount,
-      category,
-      comment,
-      createdAt: new Date().toISOString(),
-    });
+    userStates[ctx.from.id] = {
+      mode: "waiting_category",
+      pendingExpense: {
+        amount,
+        comment,
+      },
+    };
 
-    const commentText = comment ? `\n📝 Комментарий: ${comment}` : "";
+    const commentPreview = comment ? `\n📝 Комментарий: ${comment}` : "";
 
     return ctx.reply(
-      `${userName} ${actionWord} расход:
-💰 Сумма: ${amount} €
-📂 Категория: ${category}${commentText}`,
+      `Выбери категорию:
+💰 Сумма: ${amount} €${commentPreview}`,
+      getCategoryKeyboard(),
     );
-  } catch (error) {
-    console.error("Ошибка при сохранении расхода:", error);
-    return ctx.reply("Ошибка при сохранении расхода.");
   }
+
+  if (state?.mode === "waiting_category") {
+    return ctx.reply(
+      "Сначала выбери категорию кнопкой ниже или нажми /add заново.",
+    );
+  }
+
+  return ctx.reply(
+    `Чтобы добавить расход, нажми /add
+
+После этого введи:
+150
+или
+150 кофе`,
+  );
 });
 
 bot.launch().then(() => {
