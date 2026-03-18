@@ -1,0 +1,41 @@
+const { userIsAllowed, getUserName } = require("../utils/auth");
+const { setUserState } = require("../state/userState");
+const { getExpenseInputHint } = require("../constants/messages");
+const { formatExpensePreview } = require("../utils/formatters");
+const { getDeleteConfirmKeyboard } = require("../keyboards/common");
+const { getLastUserExpense } = require("../services/expenseService");
+
+function registerExpenseHandlers(bot) {
+  bot.command("add", (ctx) => {
+    if (!userIsAllowed(ctx)) {
+      return ctx.reply("Доступ разрешен только владельцам.");
+    }
+
+    setUserState(ctx.from.id, { mode: "waiting_expense_input" });
+    return ctx.reply(getExpenseInputHint(getUserName(ctx)));
+  });
+
+  bot.command("undo", async (ctx) => {
+    if (!userIsAllowed(ctx)) {
+      return ctx.reply("Нет доступа");
+    }
+
+    try {
+      const lastExpense = await getLastUserExpense(ctx.from.id);
+
+      if (!lastExpense) {
+        return ctx.reply("❌ У тебя нет расходов для удаления");
+      }
+
+      return ctx.reply(
+        `Удалить этот расход?\n\n${formatExpensePreview(lastExpense)}`,
+        getDeleteConfirmKeyboard(lastExpense.id),
+      );
+    } catch (error) {
+      console.error("Ошибка при получении последнего расхода:", error);
+      return ctx.reply("❌ Ошибка при получении расхода");
+    }
+  });
+}
+
+module.exports = { registerExpenseHandlers };
