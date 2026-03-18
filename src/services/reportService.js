@@ -60,7 +60,7 @@ async function sendFullPeriodReport(ctx, label, startDate, endDate) {
       `📊 Отчет ${label}\n\n` +
       `💰 Всего: ${total} €\n\n` +
       `👤 По людям:\n${formatUserStats(userStats)}\n\n` +
-      `📂 По категориям:\n${formatCategoryStats(categoryStats)}\n\n` +
+      `📂 По категориям:\n${formatCategoryStats(categoryStats, total)}\n\n` +
       `🧾 Расходы:\n${formatExpenseList(expenses)}`;
 
     return ctx.reply(message);
@@ -81,7 +81,7 @@ async function sendShortPeriodReport(ctx, label, startDate, endDate) {
       `📊 Короткий отчет ${label}\n\n` +
       `💰 Всего: ${total} €\n\n` +
       `👤 По людям:\n${formatUserStats(userStats)}\n\n` +
-      `📂 По категориям:\n${formatCategoryStats(categoryStats)}`;
+      `📂 По категориям:\n${formatCategoryStats(categoryStats, total)}`;
 
     return ctx.reply(message);
   } catch (error) {
@@ -99,7 +99,7 @@ async function sendFullAllTimeReport(ctx) {
       `📊 Отчет за все время\n\n` +
       `💰 Всего: ${total} €\n\n` +
       `👤 По людям:\n${formatUserStats(userStats)}\n\n` +
-      `📂 По категориям:\n${formatCategoryStats(categoryStats)}\n\n` +
+      `📂 По категориям:\n${formatCategoryStats(categoryStats, total)}\n\n` +
       `🧾 Расходы:\n${formatExpenseList(expenses)}`;
 
     return ctx.reply(message);
@@ -117,7 +117,7 @@ async function sendShortAllTimeReport(ctx) {
       `📊 Короткий отчет за все время\n\n` +
       `💰 Всего: ${total} €\n\n` +
       `👤 По людям:\n${formatUserStats(userStats)}\n\n` +
-      `📂 По категориям:\n${formatCategoryStats(categoryStats)}`;
+      `📂 По категориям:\n${formatCategoryStats(categoryStats, total)}`;
 
     return ctx.reply(message);
   } catch (error) {
