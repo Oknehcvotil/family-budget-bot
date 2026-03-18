@@ -6,6 +6,7 @@ A Telegram bot for family expense tracking. Supports adding expenses by category
 
 - Node.js 20+
 - npm
+- PostgreSQL database (e.g. [Supabase](https://supabase.com) free tier)
 
 ## Installation
 
@@ -31,6 +32,10 @@ LILIA_ID=222222222
 
 # Admin user ID (can run /cleardb and see the admin menu button)
 ADMIN_USER_ID=111111111
+
+# PostgreSQL connection string
+# Supabase: Settings → Database → Connection string → URI
+DATABASE_URL=postgresql://postgres:[password]@[host]:5432/postgres
 ```
 
 > To get your Telegram user ID, message [@userinfobot](https://t.me/userinfobot).
@@ -84,7 +89,7 @@ src/
   index.js            # Entry point
   config/             # Categories, users, months, env
   constants/          # Message templates
-  database/           # SQLite access layer (budget.db)
+  database/           # PostgreSQL access layer (pg pool)
   handlers/           # Command and action handlers
   keyboards/          # Inline and reply keyboard builders
   services/           # Business logic (expenses, limits, reports)
@@ -92,9 +97,18 @@ src/
   utils/              # Auth, date helpers, formatters
 ```
 
+## Database setup (Supabase)
+
+1. Go to [supabase.com](https://supabase.com) and create a free project.
+2. In **Settings → Database → Connection string → URI** — copy the connection string.
+3. Paste it as `DATABASE_URL` in your `.env`.
+4. Tables are created automatically on first run (`CREATE TABLE IF NOT EXISTS`).
+
+> For any other PostgreSQL provider (Railway, Neon, self-hosted), use the same `DATABASE_URL` format.
+
 ## Deployment
 
-The bot uses **long polling** and stores data in a local **SQLite file** (`budget.db`), so it must run on a persistent server — not a serverless platform.
+The bot uses **long polling**, so it must run as a continuously alive process — not a serverless function.
 
 **Recommended: VPS + PM2**
 

@@ -1,11 +1,20 @@
 require("dotenv").config();
 const { createBot } = require("./bot");
+const { initDb } = require("./database/db");
 
-const bot = createBot();
+async function main() {
+  await initDb();
 
-bot.launch().then(() => {
+  const bot = createBot();
+
+  await bot.launch();
   console.log("Бот запущен");
-});
 
-process.once("SIGINT", () => bot.stop("SIGINT"));
-process.once("SIGTERM", () => bot.stop("SIGTERM"));
+  process.once("SIGINT", () => bot.stop("SIGINT"));
+  process.once("SIGTERM", () => bot.stop("SIGTERM"));
+}
+
+main().catch((err) => {
+  console.error("Fatal error:", err.message);
+  process.exit(1);
+});
