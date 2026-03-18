@@ -1,7 +1,16 @@
 const { userIsAllowed, getUser, getUserName } = require("../utils/auth");
 const { getExpenseInputHint } = require("../constants/messages");
-const { getUserState, setUserState } = require("../state/userState");
+const {
+  getUserState,
+  setUserState,
+  clearUserState,
+} = require("../state/userState");
 const { getCategoryKeyboard } = require("../keyboards/expense");
+const {
+  saveCurrentMonthLimit,
+  formatLimitStatusMessage,
+} = require("../services/limitService");
+const { getLimitKeyboard } = require("../keyboards/limit");
 
 function registerTextHandlers(bot) {
   bot.on("text", async (ctx) => {
@@ -20,6 +29,33 @@ function registerTextHandlers(bot) {
     const user = getUser(ctx);
     const userName = getUserName(ctx);
     const state = getUserState(ctx.from.id);
+
+    if (state?.mode === "waiting_month_limit") {
+      const amount = Number(text.replace(",", "."));
+
+      if (Number.isNaN(amount) || amount <= 0) {
+        return ctx.reply(`Введите корректный лимит числом.
+
+Примеры:
+1000
+1500`);
+      }
+
+      try {
+        const status = await saveCurrentMonthLimit(amount);
+        clearUserState(ctx.from.id);
+
+        return ctx.reply(
+          `✅ Лимит сохранён
+
+${formatLimitStatusMessage(status)}`,
+          getLimitKeyboard(true),
+        );
+      } catch (error) {
+        console.error("Ошибка при сохранении лимита:", error);
+        return ctx.reply("Ошибка при сохранении лимита.");
+      }
+    }
 
     if (state?.mode === "waiting_expense_input") {
       const parts = text.split(/\s+/);

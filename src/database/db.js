@@ -15,6 +15,17 @@ db.serialize(() => {
     )
   `);
 
+  db.run(
+    `
+    CREATE TABLE IF NOT EXISTS monthly_limits (
+      month_key TEXT PRIMARY KEY,
+      limit_amount REAL NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `,
+  );
+
   db.run(`ALTER TABLE expenses ADD COLUMN comment TEXT`, (err) => {
     if (err && !err.message.includes("duplicate column name")) {
       console.error("Ошибка при добавлении колонки comment:", err.message);
@@ -95,7 +106,7 @@ function deleteExpenseById(expenseId, userId) {
       [expenseId, userId],
       function (err) {
         if (err) return reject(err);
-        resolve(this.changes);
+        resolve(this.changes > 0);
       },
     );
   });
@@ -105,7 +116,7 @@ function getExpensesByPeriod(startDate, endDate) {
   return new Promise((resolve, reject) => {
     db.all(
       `
-      SELECT *
+      SELECT id, user_id, user_name, amount, category, comment, created_at
       FROM expenses
       WHERE created_at >= ? AND created_at < ?
       ORDER BY datetime(created_at) DESC, id DESC
@@ -113,7 +124,7 @@ function getExpensesByPeriod(startDate, endDate) {
       [startDate, endDate],
       (err, rows) => {
         if (err) return reject(err);
-        resolve(rows);
+        resolve(rows || []);
       },
     );
   });
@@ -130,7 +141,7 @@ function getTotalByPeriod(startDate, endDate) {
       [startDate, endDate],
       (err, row) => {
         if (err) return reject(err);
-        resolve(row?.total ?? 0);
+        resolve(Number(row?.total ?? 0));
       },
     );
   });
@@ -149,7 +160,7 @@ function getCategoryStatsByPeriod(startDate, endDate) {
       [startDate, endDate],
       (err, rows) => {
         if (err) return reject(err);
-        resolve(rows);
+        resolve(rows || []);
       },
     );
   });
@@ -168,7 +179,7 @@ function getUserStatsByPeriod(startDate, endDate) {
       [startDate, endDate],
       (err, rows) => {
         if (err) return reject(err);
-        resolve(rows);
+        resolve(rows || []);
       },
     );
   });
@@ -178,14 +189,14 @@ function getAllExpenses() {
   return new Promise((resolve, reject) => {
     db.all(
       `
-      SELECT *
+      SELECT id, user_id, user_name, amount, category, comment, created_at
       FROM expenses
       ORDER BY datetime(created_at) DESC, id DESC
       `,
       [],
       (err, rows) => {
         if (err) return reject(err);
-        resolve(rows);
+        resolve(rows || []);
       },
     );
   });
@@ -201,7 +212,7 @@ function getAllTotal() {
       [],
       (err, row) => {
         if (err) return reject(err);
-        resolve(row?.total ?? 0);
+        resolve(Number(row?.total ?? 0));
       },
     );
   });
@@ -219,7 +230,7 @@ function getAllCategoryStats() {
       [],
       (err, rows) => {
         if (err) return reject(err);
-        resolve(rows);
+        resolve(rows || []);
       },
     );
   });
@@ -237,7 +248,7 @@ function getAllUserStats() {
       [],
       (err, rows) => {
         if (err) return reject(err);
-        resolve(rows);
+        resolve(rows || []);
       },
     );
   });
@@ -256,11 +267,68 @@ function getAvailableYears() {
       (err, rows) => {
         if (err) return reject(err);
 
-        const years = rows
+        const years = (rows || [])
           .map((row) => Number(row.year))
           .filter((year) => !Number.isNaN(year));
 
         resolve(years);
+      },
+    );
+  });
+}
+
+function getMonthlyLimit(monthKey) {
+  return new Promise((resolve, reject) => {
+    db.get(
+      `
+      SELECT month_key, limit_amount, created_at, updated_at
+      FROM monthly_limits
+      WHERE month_key = ?
+      LIMIT 1
+      `,
+      [monthKey],
+      (err, row) => {
+        if (err) return reject(err);
+        resolve(row || null);
+      },
+    );
+  });
+}
+
+function setMonthlyLimit(monthKey, amount) {
+  const now = new Date().toISOString();
+
+  return new Promise((resolve, reject) => {
+    db.run(
+      `
+      INSERT INTO monthly_limits (month_key, limit_amount, created_at, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(month_key) DO UPDATE SET
+        limit_amount = excluded.limit_amount,
+        updated_at = excluded.updated_at
+      `,
+      [monthKey, amount, now, now],
+      function (err) {
+        if (err) return reject(err);
+        resolve({
+          changes: this.changes,
+        });
+      },
+    );
+  });
+}
+
+function deleteMonthlyLimit(monthKey) {
+  return new Promise((resolve, reject) => {
+    db.run(
+      `
+      DELETE FROM monthly_limits
+      WHERE month_key = ?
+      `,
+      [monthKey],
+      function (err) {
+        if (err) return reject(err);
+        resolve(this.changes > 0);
       },
     );
   });
@@ -280,4 +348,7 @@ module.exports = {
   getAllCategoryStats,
   getAllUserStats,
   getAvailableYears,
+  getMonthlyLimit,
+  setMonthlyLimit,
+  deleteMonthlyLimit,
 };

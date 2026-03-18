@@ -15,7 +15,7 @@ function registerExpenseHandlers(bot) {
     return ctx.reply(getExpenseInputHint(getUserName(ctx)));
   });
 
-  bot.command("undo", async (ctx) => {
+  bot.command("delete", async (ctx) => {
     if (!userIsAllowed(ctx)) {
       return ctx.reply("Нет доступа");
     }

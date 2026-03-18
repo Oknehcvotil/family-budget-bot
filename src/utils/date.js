@@ -28,6 +28,20 @@ function getStartOfNextWeek() {
   );
 }
 
+function getStartOfMonth(date = new Date()) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function getStartOfNextMonth(date = new Date()) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 1);
+}
+
+function getMonthKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
 function getMonthRange(month, year) {
   const monthNumber = Number(month);
   const yearNumber = Number(year);
@@ -68,6 +82,9 @@ module.exports = {
   getStartOfTomorrow,
   getStartOfWeek,
   getStartOfNextWeek,
+  getStartOfMonth,
+  getStartOfNextMonth,
+  getMonthKey,
   getMonthRange,
   getYearRange,
 };
