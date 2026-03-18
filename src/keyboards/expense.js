@@ -1,21 +1,25 @@
 const { Markup } = require("telegraf");
+const { categories } = require("../config/categories");
 
 function getCategoryKeyboard() {
-  return Markup.inlineKeyboard([
-    [
-      Markup.button.callback("Квартира", "pick_category:apartment"),
-      Markup.button.callback("Коммунальные", "pick_category:utilities"),
-    ],
-    [
-      Markup.button.callback("Развлечения", "pick_category:fun"),
-      Markup.button.callback("Продукты", "pick_category:products"),
-    ],
-    [
-      Markup.button.callback("Одежда", "pick_category:clothes"),
-      Markup.button.callback("Разное", "pick_category:other"),
-    ],
-    [Markup.button.callback("❌ Отмена", "cancel_expense_add")],
-  ]);
+  const rows = [];
+
+  for (let i = 0; i < categories.length; i += 2) {
+    const row = categories
+      .slice(i, i + 2)
+      .map((category) =>
+        Markup.button.callback(
+          `${category.icon} ${category.shortLabel || category.label}`,
+          `pick_category:${category.key}`,
+        ),
+      );
+
+    rows.push(row);
+  }
+
+  rows.push([Markup.button.callback("❌ Отмена", "cancel_expense_add")]);
+
+  return Markup.inlineKeyboard(rows);
 }
 
 function getUndoKeyboard(expenseId) {
