@@ -187,6 +187,29 @@ function getAllUserStats() {
   });
 }
 
+function getAvailableYears() {
+  return new Promise((resolve, reject) => {
+    db.all(
+      `
+      SELECT DISTINCT strftime('%Y', created_at) AS year
+      FROM expenses
+      WHERE created_at IS NOT NULL
+      ORDER BY year DESC
+      `,
+      [],
+      (err, rows) => {
+        if (err) return reject(err);
+
+        const years = rows
+          .map((row) => Number(row.year))
+          .filter((year) => !Number.isNaN(year));
+
+        resolve(years);
+      },
+    );
+  });
+}
+
 module.exports = {
   addExpense,
   getExpensesByPeriod,
@@ -197,4 +220,5 @@ module.exports = {
   getAllTotal,
   getAllCategoryStats,
   getAllUserStats,
+  getAvailableYears,
 };

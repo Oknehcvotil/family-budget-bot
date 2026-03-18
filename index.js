@@ -1,5 +1,5 @@
 require("dotenv").config();
-const { Telegraf } = require("telegraf");
+const { Telegraf, Markup } = require("telegraf");
 const {
   addExpense,
   getExpensesByPeriod,
@@ -10,6 +10,7 @@ const {
   getAllTotal,
   getAllCategoryStats,
   getAllUserStats,
+  getAvailableYears,
 } = require("./db");
 
 const token = process.env.BOT_TOKEN;
@@ -19,15 +20,11 @@ if (!token) {
   process.exit(1);
 }
 
+const bot = new Telegraf(token);
+
 const users = {
-  [Number(process.env.KIRILL_ID)]: {
-    name: "Кирилл",
-    gender: "m",
-  },
-  [Number(process.env.LILIA_ID)]: {
-    name: "Лиля",
-    gender: "f",
-  },
+  [Number(process.env.KIRILL_ID)]: { name: "Кирилл", gender: "m" },
+  [Number(process.env.LILIA_ID)]: { name: "Лиля", gender: "f" },
 };
 
 const allowedUserIds = (process.env.ALLOWED_USER_IDS || "")
@@ -45,11 +42,40 @@ const allowedCategories = {
   разное: "Разное",
 };
 
+const monthNames = {
+  1: "Январь",
+  2: "Февраль",
+  3: "Март",
+  4: "Апрель",
+  5: "Май",
+  6: "Июнь",
+  7: "Июль",
+  8: "Август",
+  9: "Сентябрь",
+  10: "Октябрь",
+  11: "Ноябрь",
+  12: "Декабрь",
+};
+
+function getSelectableYears() {
+  const startYear = 2024; 
+  const currentYear = new Date().getFullYear();
+  const endYear = currentYear + 1; 
+
+  const years = [];
+
+  for (let year = startYear; year <= endYear; year++) {
+    years.push(year);
+  }
+
+  return years;
+}
+
 const categoriesHint = Object.values(allowedCategories)
   .map((category) => `• ${category}`)
   .join("\n");
 
-const bot = new Telegraf(token);
+const userStates = {};
 
 function getUser(ctx) {
   const userId = ctx.from?.id;
@@ -57,8 +83,7 @@ function getUser(ctx) {
 }
 
 function getUserName(ctx) {
-  const user = getUser(ctx);
-  return user?.name || "Пользователь";
+  return getUser(ctx)?.name || "Пользователь";
 }
 
 function getActionWord(user) {
@@ -76,6 +101,10 @@ function normalizeCategory(input) {
   if (!input) return null;
   const key = input.trim().toLowerCase();
   return allowedCategories[key] || null;
+}
+
+function formatDateForDb(date) {
+  return date.toISOString();
 }
 
 function getStartOfToday() {
@@ -148,10 +177,6 @@ function getYearRange(year) {
   return { start, end };
 }
 
-function formatDateForDb(date) {
-  return date.toISOString();
-}
-
 function formatExpenseList(expenses) {
   if (!expenses.length) {
     return "Расходов нет.";
@@ -167,20 +192,20 @@ function formatExpenseList(expenses) {
     .join("\n");
 }
 
-function formatUserStats(stats) {
-  if (!stats.length) {
-    return "По людям пока пусто.";
-  }
-
-  return stats.map((item) => `• ${item.user_name}: ${item.total} €`).join("\n");
-}
-
 function formatCategoryStats(stats) {
   if (!stats.length) {
     return "По категориям пока пусто.";
   }
 
   return stats.map((item) => `• ${item.category}: ${item.total} €`).join("\n");
+}
+
+function formatUserStats(stats) {
+  if (!stats.length) {
+    return "По людям пока пусто.";
+  }
+
+  return stats.map((item) => `• ${item.user_name}: ${item.total} €`).join("\n");
 }
 
 function getExpenseInputHint(userName) {
@@ -193,6 +218,58 @@ function getExpenseInputHint(userName) {
 
 Доступные категории:
 ${categoriesHint}`;
+}
+
+async function getYearsKeyboard(prefix) {
+  const years = await getAvailableYears();
+
+  if (!years.length) {
+    return Markup.inlineKeyboard([
+      [Markup.button.callback("❌ Отмена", "cancel_selection")],
+    ]);
+  }
+
+  const rows = [];
+
+  for (let i = 0; i < years.length; i += 2) {
+    const row = years
+      .slice(i, i + 2)
+      .map((year) => Markup.button.callback(String(year), `${prefix}:${year}`));
+    rows.push(row);
+  }
+
+  rows.push([Markup.button.callback("❌ Отмена", "cancel_selection")]);
+
+  return Markup.inlineKeyboard(rows);
+}
+
+function getMonthsKeyboard(year) {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback("Январь", `pick_month:${year}:1`),
+      Markup.button.callback("Февраль", `pick_month:${year}:2`),
+      Markup.button.callback("Март", `pick_month:${year}:3`),
+    ],
+    [
+      Markup.button.callback("Апрель", `pick_month:${year}:4`),
+      Markup.button.callback("Май", `pick_month:${year}:5`),
+      Markup.button.callback("Июнь", `pick_month:${year}:6`),
+    ],
+    [
+      Markup.button.callback("Июль", `pick_month:${year}:7`),
+      Markup.button.callback("Август", `pick_month:${year}:8`),
+      Markup.button.callback("Сентябрь", `pick_month:${year}:9`),
+    ],
+    [
+      Markup.button.callback("Октябрь", `pick_month:${year}:10`),
+      Markup.button.callback("Ноябрь", `pick_month:${year}:11`),
+      Markup.button.callback("Декабрь", `pick_month:${year}:12`),
+    ],
+    [
+      Markup.button.callback("⬅️ Назад к годам", "back_to_month_years"),
+      Markup.button.callback("❌ Отмена", "cancel_selection"),
+    ],
+  ]);
 }
 
 async function sendPeriodReport(ctx, label, startDate, endDate) {
@@ -233,7 +310,7 @@ async function sendAllTimeReport(ctx) {
     const message =
       `📊 Отчет за все время\n\n` +
       `💰 Всего: ${total} €\n\n` +
-      `👤 По транжирам:\n${formatUserStats(userStats)}\n\n` +
+      `👤 По людям:\n${formatUserStats(userStats)}\n\n` +
       `📂 По категориям:\n${formatCategoryStats(categoryStats)}\n\n` +
       `🧾 Расходы:\n${formatExpenseList(expenses)}`;
 
@@ -261,9 +338,9 @@ bot.start((ctx) => {
 /today - отчет за сегодня
 /week - отчет за неделю
 /month - отчет за текущий месяц
-/month 6 2025 - отчет за июнь 2025
+/month_select - выбрать месяц кнопками
 /year - отчет за текущий год
-/year 2025 - отчет за 2025 год
+/year_select - выбрать год кнопками
 /all - отчет за все время
 /help - справка
 
@@ -292,9 +369,9 @@ bot.help((ctx) => {
 /today - отчет за сегодня
 /week - отчет за неделю
 /month - отчет за текущий месяц
-/month 6 2025 - отчет за конкретный месяц
+/month_select - выбрать месяц кнопками
 /year - отчет за текущий год
-/year 2025 - отчет за конкретный год
+/year_select - выбрать год кнопками
 /all - отчет за все время
 
 ${getExpenseInputHint(userName)}`,
@@ -306,8 +383,7 @@ bot.command("add", (ctx) => {
     return ctx.reply("Доступ разрешен только владельцам.");
   }
 
-  const userName = getUserName(ctx);
-  return ctx.reply(getExpenseInputHint(userName));
+  return ctx.reply(getExpenseInputHint(getUserName(ctx)));
 });
 
 bot.command("today", async (ctx) => {
@@ -341,38 +417,11 @@ bot.command("month", async (ctx) => {
     return ctx.reply("Нет доступа");
   }
 
-  const parts = ctx.message.text.trim().split(/\s+/);
-
-  if (parts.length === 1) {
-    return sendPeriodReport(
-      ctx,
-      "за текущий месяц",
-      getStartOfMonth(),
-      getStartOfNextMonth(),
-    );
-  }
-
-  if (parts.length === 3) {
-    const month = parts[1];
-    const year = parts[2];
-    const range = getMonthRange(month, year);
-
-    if (!range) {
-      return ctx.reply(
-        "Неверный формат.\n\nПримеры:\n/month\n/month 6 2025\n/month 01 2026",
-      );
-    }
-
-    return sendPeriodReport(
-      ctx,
-      `за ${String(month).padStart(2, "0")}.${year}`,
-      range.start,
-      range.end,
-    );
-  }
-
-  return ctx.reply(
-    "Неверный формат.\n\nПримеры:\n/month\n/month 6 2025\n/month 01 2026",
+  await sendPeriodReport(
+    ctx,
+    "за текущий месяц",
+    getStartOfMonth(),
+    getStartOfNextMonth(),
   );
 });
 
@@ -381,36 +430,10 @@ bot.command("year", async (ctx) => {
     return ctx.reply("Нет доступа");
   }
 
-  const parts = ctx.message.text.trim().split(/\s+/);
+  const currentYear = new Date().getFullYear();
+  const range = getYearRange(currentYear);
 
-  if (parts.length === 1) {
-    const currentYear = new Date().getFullYear();
-    const range = getYearRange(currentYear);
-
-    return sendPeriodReport(
-      ctx,
-      `за ${currentYear} год`,
-      range.start,
-      range.end,
-    );
-  }
-
-  if (parts.length === 2) {
-    const year = parts[1];
-    const range = getYearRange(year);
-
-    if (!range) {
-      return ctx.reply(
-        "Неверный формат.\n\nПримеры:\n/year\n/year 2024\n/year 2025\n/year 2026",
-      );
-    }
-
-    return sendPeriodReport(ctx, `за ${year} год`, range.start, range.end);
-  }
-
-  return ctx.reply(
-    "Неверный формат.\n\nПримеры:\n/year\n/year 2024\n/year 2025\n/year 2026",
-  );
+  await sendPeriodReport(ctx, `за ${currentYear} год`, range.start, range.end);
 });
 
 bot.command("all", async (ctx) => {
@@ -419,6 +442,139 @@ bot.command("all", async (ctx) => {
   }
 
   await sendAllTimeReport(ctx);
+});
+
+bot.command("month_select", async (ctx) => {
+  if (!userIsAllowed(ctx)) {
+    return ctx.reply("Нет доступа");
+  }
+
+  userStates[ctx.from.id] = { mode: "month_select" };
+
+  const years = await getAvailableYears();
+
+  if (!years.length) {
+    return ctx.reply("Пока нет расходов, поэтому выбрать год нельзя.");
+  }
+
+  return ctx.reply(
+    "Выбери год для отчета по месяцам:",
+    await getYearsKeyboard("pick_month_year"),
+  );
+});
+
+bot.command("year_select", async (ctx) => {
+  if (!userIsAllowed(ctx)) {
+    return ctx.reply("Нет доступа");
+  }
+
+  userStates[ctx.from.id] = { mode: "year_select" };
+
+  const years = await getAvailableYears();
+
+  if (!years.length) {
+    return ctx.reply("Пока нет расходов, поэтому выбрать год нельзя.");
+  }
+
+  return ctx.reply(
+    "Выбери год для отчета:",
+    await getYearsKeyboard("pick_year"),
+  );
+});
+
+bot.action("cancel_selection", async (ctx) => {
+  if (!userIsAllowed(ctx)) {
+    return ctx.answerCbQuery("Нет доступа");
+  }
+
+  delete userStates[ctx.from.id];
+  await ctx.answerCbQuery("Отменено");
+  return ctx.editMessageText("Выбор отменен.");
+});
+
+bot.action("back_to_month_years", async (ctx) => {
+  if (!userIsAllowed(ctx)) {
+    return ctx.answerCbQuery("Нет доступа");
+  }
+
+  userStates[ctx.from.id] = { mode: "month_select" };
+  await ctx.answerCbQuery();
+
+  const years = await getAvailableYears();
+
+  if (!years.length) {
+    return ctx.editMessageText(
+      "Пока нет расходов, поэтому выбрать год нельзя.",
+    );
+  }
+
+  return ctx.editMessageText(
+    "Выбери год для отчета по месяцам:",
+    await getYearsKeyboard("pick_month_year"),
+  );
+});
+
+bot.action(/^pick_year:(\d{4})$/, async (ctx) => {
+  if (!userIsAllowed(ctx)) {
+    return ctx.answerCbQuery("Нет доступа");
+  }
+
+  const year = Number(ctx.match[1]);
+  const range = getYearRange(year);
+
+  if (!range) {
+    return ctx.answerCbQuery("Неверный год");
+  }
+
+  delete userStates[ctx.from.id];
+  await ctx.answerCbQuery(`Отчет за ${year}`);
+  await ctx.editMessageText(`Выбран год: ${year}`);
+  return sendPeriodReport(ctx, `за ${year} год`, range.start, range.end);
+});
+
+bot.action(/^pick_month_year:(\d{4})$/, async (ctx) => {
+  if (!userIsAllowed(ctx)) {
+    return ctx.answerCbQuery("Нет доступа");
+  }
+
+  const year = Number(ctx.match[1]);
+
+  userStates[ctx.from.id] = {
+    mode: "month_select",
+    selectedYear: year,
+  };
+
+  await ctx.answerCbQuery(`Год ${year}`);
+  return ctx.editMessageText(
+    `Выбери месяц для ${year}:`,
+    getMonthsKeyboard(year),
+  );
+});
+
+bot.action(/^pick_month:(\d{4}):(\d{1,2})$/, async (ctx) => {
+  if (!userIsAllowed(ctx)) {
+    return ctx.answerCbQuery("Нет доступа");
+  }
+
+  const year = Number(ctx.match[1]);
+  const month = Number(ctx.match[2]);
+  const range = getMonthRange(month, year);
+
+  if (!range) {
+    return ctx.answerCbQuery("Неверный месяц");
+  }
+
+  delete userStates[ctx.from.id];
+
+  const monthName = monthNames[month];
+  await ctx.answerCbQuery(`${monthName} ${year}`);
+  await ctx.editMessageText(`Выбран период: ${monthName} ${year}`);
+  return sendPeriodReport(
+    ctx,
+    `за ${monthName.toLowerCase()} ${year}`,
+    range.start,
+    range.end,
+  );
 });
 
 bot.on("text", async (ctx) => {
