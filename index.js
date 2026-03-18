@@ -2,6 +2,9 @@ require("dotenv").config();
 const { Telegraf, Markup } = require("telegraf");
 const {
   addExpense,
+  getLastExpense,
+  getExpenseById,
+  deleteExpenseById,
   getExpensesByPeriod,
   getTotalByPeriod,
   getCategoryStatsByPeriod,
@@ -199,6 +202,14 @@ function getExpenseInputHint(userName) {
 45 такси домой`;
 }
 
+function formatExpensePreview(expense) {
+  const commentText = expense.comment
+    ? `\n📝 Комментарий: ${expense.comment}`
+    : "";
+  return `💰 Сумма: ${expense.amount} €
+📂 Категория: ${expense.category}${commentText}`;
+}
+
 async function getYearsKeyboard(prefix) {
   const years = await getAvailableYears();
 
@@ -269,6 +280,18 @@ function getCategoryKeyboard() {
   ]);
 }
 
+function getDeleteConfirmKeyboard(expenseId) {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback(
+        "✅ Да, удалить",
+        `confirm_delete_expense:${expenseId}`,
+      ),
+    ],
+    [Markup.button.callback("❌ Отмена", "cancel_delete_expense")],
+  ]);
+}
+
 async function sendPeriodReport(ctx, label, startDate, endDate) {
   try {
     const start = formatDateForDb(startDate);
@@ -332,6 +355,7 @@ bot.start((ctx) => {
 
 Команды:
 /add - добавить расход
+/undo - удалить последний расход
 /today - отчет за сегодня
 /week - отчет за неделю
 /month - отчет за текущий месяц
@@ -363,6 +387,7 @@ bot.help((ctx) => {
 /start - запуск
 /help - справка
 /add - добавить расход
+/undo - удалить последний расход
 /today - отчет за сегодня
 /week - отчет за неделю
 /month - отчет за текущий месяц
@@ -384,8 +409,29 @@ bot.command("add", (ctx) => {
   }
 
   userStates[ctx.from.id] = { mode: "waiting_expense_input" };
-
   return ctx.reply(getExpenseInputHint(getUserName(ctx)));
+});
+
+bot.command("undo", async (ctx) => {
+  if (!userIsAllowed(ctx)) {
+    return ctx.reply("Нет доступа");
+  }
+
+  try {
+    const lastExpense = await getLastExpense(ctx.from.id);
+
+    if (!lastExpense) {
+      return ctx.reply("❌ У тебя нет расходов для удаления");
+    }
+
+    return ctx.reply(
+      `Удалить этот расход?\n\n${formatExpensePreview(lastExpense)}`,
+      getDeleteConfirmKeyboard(lastExpense.id),
+    );
+  } catch (error) {
+    console.error("Ошибка при получении последнего расхода:", error);
+    return ctx.reply("❌ Ошибка при получении расхода");
+  }
 });
 
 bot.command("today", async (ctx) => {
@@ -504,6 +550,15 @@ bot.action("cancel_expense_add", async (ctx) => {
   return ctx.editMessageText("Добавление расхода отменено.");
 });
 
+bot.action("cancel_delete_expense", async (ctx) => {
+  if (!userIsAllowed(ctx)) {
+    return ctx.answerCbQuery("Нет доступа");
+  }
+
+  await ctx.answerCbQuery("Отменено");
+  return ctx.editMessageText("Удаление расхода отменено.");
+});
+
 bot.action("back_to_month_years", async (ctx) => {
   if (!userIsAllowed(ctx)) {
     return ctx.answerCbQuery("Нет доступа");
@@ -610,11 +665,10 @@ bot.action(/^pick_category:(.+)$/, async (ctx) => {
   const user = getUser(ctx);
   const userName = user?.name || "Пользователь";
   const actionWord = getActionWord(user);
-
   const { amount, comment } = state.pendingExpense;
 
   try {
-    await addExpense({
+    const savedExpense = await addExpense({
       userId: ctx.from.id,
       userName,
       amount,
@@ -626,7 +680,7 @@ bot.action(/^pick_category:(.+)$/, async (ctx) => {
     delete userStates[ctx.from.id];
 
     await ctx.answerCbQuery(`Категория: ${categoryLabel}`);
-    await ctx.editMessageText(`Выбрана категория: ${categoryLabel}`);
+    await ctx.editMessageText(`✅ Выбрана категория: ${categoryLabel}`);
 
     const commentText = comment ? `\n📝 Комментарий: ${comment}` : "";
 
@@ -634,10 +688,68 @@ bot.action(/^pick_category:(.+)$/, async (ctx) => {
       `${userName} ${actionWord} расход:
 💰 Сумма: ${amount} €
 📂 Категория: ${categoryLabel}${commentText}`,
+      Markup.inlineKeyboard([
+        [
+          Markup.button.callback(
+            "↩️ Отменить",
+            `ask_delete_expense:${savedExpense.id}`,
+          ),
+        ],
+      ]),
     );
   } catch (error) {
     console.error("Ошибка при сохранении расхода:", error);
     return ctx.reply("Ошибка при сохранении расхода.");
+  }
+});
+
+bot.action(/^ask_delete_expense:(\d+)$/, async (ctx) => {
+  if (!userIsAllowed(ctx)) {
+    return ctx.answerCbQuery("Нет доступа");
+  }
+
+  const expenseId = Number(ctx.match[1]);
+
+  try {
+    const expense = await getExpenseById(expenseId, ctx.from.id);
+
+    if (!expense) {
+      await ctx.answerCbQuery("Расход не найден");
+      return;
+    }
+
+    await ctx.answerCbQuery();
+
+    return ctx.reply(
+      `Удалить этот расход?\n\n${formatExpensePreview(expense)}`,
+      getDeleteConfirmKeyboard(expense.id),
+    );
+  } catch (error) {
+    console.error("Ошибка при получении расхода:", error);
+    return ctx.answerCbQuery("Ошибка");
+  }
+});
+
+bot.action(/^confirm_delete_expense:(\d+)$/, async (ctx) => {
+  if (!userIsAllowed(ctx)) {
+    return ctx.answerCbQuery("Нет доступа");
+  }
+
+  const expenseId = Number(ctx.match[1]);
+
+  try {
+    const deleted = await deleteExpenseById(expenseId, ctx.from.id);
+
+    if (!deleted) {
+      await ctx.answerCbQuery("Расход уже удалён или не найден");
+      return;
+    }
+
+    await ctx.answerCbQuery("Удалено");
+    return ctx.editMessageText("↩️ Расход удалён");
+  } catch (error) {
+    console.error("Ошибка при удалении расхода:", error);
+    return ctx.answerCbQuery("Ошибка удаления");
   }
 });
 

@@ -39,7 +39,63 @@ function addExpense({
       [userId, userName, amount, category, comment || "", createdAt],
       function (err) {
         if (err) return reject(err);
-        resolve({ id: this.lastID });
+
+        resolve({
+          id: this.lastID,
+        });
+      },
+    );
+  });
+}
+
+function getLastExpense(userId) {
+  return new Promise((resolve, reject) => {
+    db.get(
+      `
+      SELECT id, user_id, user_name, amount, category, comment, created_at
+      FROM expenses
+      WHERE user_id = ?
+      ORDER BY datetime(created_at) DESC, id DESC
+      LIMIT 1
+      `,
+      [userId],
+      (err, row) => {
+        if (err) return reject(err);
+        resolve(row || null);
+      },
+    );
+  });
+}
+
+function getExpenseById(expenseId, userId) {
+  return new Promise((resolve, reject) => {
+    db.get(
+      `
+      SELECT id, user_id, user_name, amount, category, comment, created_at
+      FROM expenses
+      WHERE id = ? AND user_id = ?
+      LIMIT 1
+      `,
+      [expenseId, userId],
+      (err, row) => {
+        if (err) return reject(err);
+        resolve(row || null);
+      },
+    );
+  });
+}
+
+function deleteExpenseById(expenseId, userId) {
+  return new Promise((resolve, reject) => {
+    db.run(
+      `
+      DELETE FROM expenses
+      WHERE id = ? AND user_id = ?
+      `,
+      [expenseId, userId],
+      function (err) {
+        if (err) return reject(err);
+        resolve(this.changes);
       },
     );
   });
@@ -52,7 +108,7 @@ function getExpensesByPeriod(startDate, endDate) {
       SELECT *
       FROM expenses
       WHERE created_at >= ? AND created_at < ?
-      ORDER BY created_at DESC
+      ORDER BY datetime(created_at) DESC, id DESC
       `,
       [startDate, endDate],
       (err, rows) => {
@@ -74,7 +130,7 @@ function getTotalByPeriod(startDate, endDate) {
       [startDate, endDate],
       (err, row) => {
         if (err) return reject(err);
-        resolve(row.total);
+        resolve(row?.total ?? 0);
       },
     );
   });
@@ -88,7 +144,7 @@ function getCategoryStatsByPeriod(startDate, endDate) {
       FROM expenses
       WHERE created_at >= ? AND created_at < ?
       GROUP BY category
-      ORDER BY total DESC
+      ORDER BY total DESC, category ASC
       `,
       [startDate, endDate],
       (err, rows) => {
@@ -107,7 +163,7 @@ function getUserStatsByPeriod(startDate, endDate) {
       FROM expenses
       WHERE created_at >= ? AND created_at < ?
       GROUP BY user_name
-      ORDER BY total DESC
+      ORDER BY total DESC, user_name ASC
       `,
       [startDate, endDate],
       (err, rows) => {
@@ -124,7 +180,7 @@ function getAllExpenses() {
       `
       SELECT *
       FROM expenses
-      ORDER BY created_at DESC
+      ORDER BY datetime(created_at) DESC, id DESC
       `,
       [],
       (err, rows) => {
@@ -145,7 +201,7 @@ function getAllTotal() {
       [],
       (err, row) => {
         if (err) return reject(err);
-        resolve(row.total);
+        resolve(row?.total ?? 0);
       },
     );
   });
@@ -158,7 +214,7 @@ function getAllCategoryStats() {
       SELECT category, COALESCE(SUM(amount), 0) AS total
       FROM expenses
       GROUP BY category
-      ORDER BY total DESC
+      ORDER BY total DESC, category ASC
       `,
       [],
       (err, rows) => {
@@ -176,7 +232,7 @@ function getAllUserStats() {
       SELECT user_name, COALESCE(SUM(amount), 0) AS total
       FROM expenses
       GROUP BY user_name
-      ORDER BY total DESC
+      ORDER BY total DESC, user_name ASC
       `,
       [],
       (err, rows) => {
@@ -212,6 +268,9 @@ function getAvailableYears() {
 
 module.exports = {
   addExpense,
+  getLastExpense,
+  getExpenseById,
+  deleteExpenseById,
   getExpensesByPeriod,
   getTotalByPeriod,
   getCategoryStatsByPeriod,
