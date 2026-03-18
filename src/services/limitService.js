@@ -11,14 +11,14 @@ const {
   formatDateForDb,
 } = require("../utils/date");
 
-async function getCurrentMonthLimitStatus() {
+async function getCurrentMonthLimitStatus(familyId) {
   const monthKey = getMonthKey();
   const start = getStartOfMonth();
   const end = getStartOfNextMonth();
 
   const [limit, spent] = await Promise.all([
-    getMonthlyLimit(monthKey),
-    getTotalByPeriod(formatDateForDb(start), formatDateForDb(end)),
+    getMonthlyLimit(familyId, monthKey),
+    getTotalByPeriod(familyId, formatDateForDb(start), formatDateForDb(end)),
   ]);
 
   const limitAmount = limit ? Number(limit.limit_amount) : null;
@@ -35,15 +35,15 @@ async function getCurrentMonthLimitStatus() {
   };
 }
 
-async function saveCurrentMonthLimit(amount) {
+async function saveCurrentMonthLimit(familyId, amount) {
   const monthKey = getMonthKey();
-  await setMonthlyLimit(monthKey, amount);
-  return getCurrentMonthLimitStatus();
+  await setMonthlyLimit(familyId, monthKey, amount);
+  return getCurrentMonthLimitStatus(familyId);
 }
 
-async function removeCurrentMonthLimit() {
+async function removeCurrentMonthLimit(familyId) {
   const monthKey = getMonthKey();
-  await deleteMonthlyLimit(monthKey);
+  await deleteMonthlyLimit(familyId, monthKey);
 }
 
 function formatLimitStatusMessage(status) {

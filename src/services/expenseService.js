@@ -9,16 +9,16 @@ async function createExpense(data) {
   return addExpense(data);
 }
 
-async function getLastUserExpense(userId) {
-  return getLastExpense(userId);
+async function getLastUserExpense(familyId, userId) {
+  return getLastExpense(familyId, userId);
 }
 
-async function getUserExpenseById(expenseId, userId) {
-  return getExpenseById(expenseId, userId);
+async function getUserExpenseById(familyId, expenseId, userId) {
+  return getExpenseById(familyId, expenseId, userId);
 }
 
-async function removeUserExpenseById(expenseId, userId) {
-  return deleteExpenseById(expenseId, userId);
+async function removeUserExpenseById(familyId, expenseId, userId) {
+  return deleteExpenseById(familyId, expenseId, userId);
 }
 
 module.exports = {

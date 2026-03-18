@@ -1,6 +1,6 @@
 # family-budget-bot
 
-A Telegram bot for family expense tracking. Supports adding expenses by category, monthly limits, period reports, and access control per user.
+A Telegram bot for family expense tracking. Supports multi-family onboarding, member invites, shared family limits, and period reports.
 
 ## Requirements
 
@@ -23,16 +23,6 @@ Create a `.env` file in the project root:
 ```env
 BOT_TOKEN=your_telegram_bot_token
 
-# Telegram user IDs allowed to use the bot (comma-separated)
-ALLOWED_USER_IDS=111111111,222222222
-
-# Individual user IDs (used for display names and gender)
-KIRILL_ID=111111111
-LILIA_ID=222222222
-
-# Admin user ID (can run /cleardb and see the admin menu button)
-ADMIN_USER_ID=111111111
-
 # PostgreSQL connection string
 # Supabase: Settings → Database → Connection string → URI
 DATABASE_URL=postgresql://postgres:[password]@[host]:5432/postgres
@@ -54,7 +44,7 @@ npm run dev
 
 | Command    | Description                                      |
 | ---------- | ------------------------------------------------ |
-| `/start`   | Welcome message + main menu                      |
+| `/start`   | Create your family (first run) or open main menu |
 | `/help`    | Help and available commands                      |
 | `/add`     | Add an expense                                   |
 | `/delete`  | Delete your last expense                         |
@@ -64,7 +54,18 @@ npm run dev
 | `/year`    | Pick a year to report on                         |
 | `/all`     | Report for all time                              |
 | `/limit`   | View or set monthly spending limit               |
-| `/cleardb` | ⚠️ Admin only — clear all data from the database |
+| `/invite`  | 👑 Admin only — generate family invite link      |
+| `/members` | 👑 Admin only — remove member from family         |
+| `/leave`   | Leave current family budget                       |
+| `/cleardb` | 👑 Admin only — clear only your family data      |
+
+## Multi-family flow
+
+1. New user opens bot and sends `/start`.
+2. Bot creates a new family and makes this user admin.
+3. Admin taps **Добавить члена семьи** (or sends `/invite`) and gets a join link.
+4. Invited user opens the link and automatically joins that family.
+5. Reports, limits, and expenses are isolated per family.
 
 ## Adding an expense
 

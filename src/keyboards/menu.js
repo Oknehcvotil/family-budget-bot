@@ -1,15 +1,20 @@
 const { Markup } = require("telegraf");
-const { adminUserId } = require("../config/users");
 
-function getMainMenuKeyboard(userId) {
+function getMainMenuKeyboard({ isAdmin = false } = {}) {
   const rows = [
     [Markup.button.text("Добавить расход"), Markup.button.text("Удалить")],
     [Markup.button.text("Отчеты"), Markup.button.text("Лимит")],
-    [Markup.button.text("Помощь")],
+    [Markup.button.text("Помощь"), Markup.button.text("Выйти из семьи")],
   ];
 
-  if (userId === adminUserId) {
-    rows.push([Markup.button.text("Очистить базу")]);
+  if (isAdmin) {
+    rows.push([
+      Markup.button.text("Добавить члена семьи"),
+      Markup.button.text("Удалить члена семьи"),
+    ]);
+    rows.push([
+      Markup.button.text("Очистить базу"),
+    ]);
   }
 
   return Markup.keyboard(rows).resize().persistent();

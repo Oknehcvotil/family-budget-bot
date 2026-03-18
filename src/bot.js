@@ -9,6 +9,7 @@ const { registerActionHandlers } = require("./handlers/actions");
 const { registerTextHandlers } = require("./handlers/text");
 const { registerLimitHandlers } = require("./handlers/limit");
 const { registerAdminHandlers } = require("./handlers/admin");
+const { attachMemberContext } = require("./utils/auth");
 
 function createBot() {
   if (!BOT_TOKEN) {
@@ -17,6 +18,8 @@ function createBot() {
   }
 
   const bot = new Telegraf(BOT_TOKEN);
+
+  bot.use(attachMemberContext);
 
   registerStartHandlers(bot);
   registerHelpHandlers(bot);

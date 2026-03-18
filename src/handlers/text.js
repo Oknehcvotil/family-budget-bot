@@ -1,4 +1,9 @@
-const { userIsAllowed, getUser, getUserName } = require("../utils/auth");
+const {
+  userIsAllowed,
+  userIsAdmin,
+  getUser,
+  getUserName,
+} = require("../utils/auth");
 const { getExpenseInputHint } = require("../constants/messages");
 const {
   getUserState,
@@ -16,9 +21,7 @@ const { getMainMenuKeyboard } = require("../keyboards/menu");
 function registerTextHandlers(bot) {
   bot.on("text", async (ctx) => {
     if (!userIsAllowed(ctx)) {
-      return ctx.reply(
-        "Доступ к вводу расходов предоставлен только владельцам.",
-      );
+      return ctx.reply("Сначала нажми /start, чтобы подключиться к семейному бюджету.");
     }
 
     const text = ctx.message.text.trim();
@@ -43,7 +46,8 @@ function registerTextHandlers(bot) {
       }
 
       try {
-        const status = await saveCurrentMonthLimit(amount);
+        const familyId = ctx.state.member.family_id;
+        const status = await saveCurrentMonthLimit(familyId, amount);
         clearUserState(ctx.from.id);
 
         return ctx.reply(
@@ -99,7 +103,7 @@ ${formatLimitStatusMessage(status)}`,
 150
 или
 150 кофе`,
-      getMainMenuKeyboard(ctx.from.id),
+      getMainMenuKeyboard({ isAdmin: userIsAdmin(ctx) }),
     );
   });
 }

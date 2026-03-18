@@ -67,7 +67,8 @@ function registerReportHandlers(bot) {
       mode: "month_select",
     });
 
-    const years = await getAvailableYears();
+    const familyId = ctx.state.member.family_id;
+    const years = await getAvailableYears(familyId);
 
     if (!years.length) {
       return ctx.reply("Пока нет расходов, поэтому выбрать год нельзя.");
@@ -75,7 +76,7 @@ function registerReportHandlers(bot) {
 
     return ctx.reply(
       "Выбери год для отчета по месяцам:",
-      await getYearsKeyboard("pick_month_year"),
+      await getYearsKeyboard("pick_month_year", familyId),
     );
   });
 
@@ -88,7 +89,8 @@ function registerReportHandlers(bot) {
       mode: "year_select",
     });
 
-    const years = await getAvailableYears();
+    const familyId = ctx.state.member.family_id;
+    const years = await getAvailableYears(familyId);
 
     if (!years.length) {
       return ctx.reply("Пока нет расходов, поэтому выбрать год нельзя.");
@@ -96,7 +98,7 @@ function registerReportHandlers(bot) {
 
     return ctx.reply(
       "Выбери год для отчета:",
-      await getYearsKeyboard("pick_year"),
+      await getYearsKeyboard("pick_year", familyId),
     );
   });
 
@@ -159,7 +161,8 @@ function registerReportHandlers(bot) {
         mode: "month_select",
       });
 
-      const years = await getAvailableYears();
+      const familyId = ctx.state.member.family_id;
+      const years = await getAvailableYears(familyId);
 
       if (!years.length) {
         return ctx.editMessageText(
@@ -169,7 +172,7 @@ function registerReportHandlers(bot) {
 
       return ctx.editMessageText(
         "Выбери год для отчета по месяцам:",
-        await getYearsKeyboard("pick_month_year"),
+        await getYearsKeyboard("pick_month_year", familyId),
       );
     }
 
@@ -178,7 +181,8 @@ function registerReportHandlers(bot) {
         mode: "year_select",
       });
 
-      const years = await getAvailableYears();
+      const familyId = ctx.state.member.family_id;
+      const years = await getAvailableYears(familyId);
 
       if (!years.length) {
         return ctx.editMessageText(
@@ -188,7 +192,7 @@ function registerReportHandlers(bot) {
 
       return ctx.editMessageText(
         "Выбери год для отчета:",
-        await getYearsKeyboard("pick_year"),
+        await getYearsKeyboard("pick_year", familyId),
       );
     }
 

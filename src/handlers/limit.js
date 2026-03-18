@@ -14,7 +14,8 @@ function registerLimitHandlers(bot) {
     }
 
     try {
-      const status = await getCurrentMonthLimitStatus();
+      const familyId = ctx.state.member.family_id;
+      const status = await getCurrentMonthLimitStatus(familyId);
 
       return ctx.reply(
         formatLimitStatusMessage(status),
@@ -32,7 +33,8 @@ function registerLimitHandlers(bot) {
     }
 
     try {
-      const status = await getCurrentMonthLimitStatus();
+      const familyId = ctx.state.member.family_id;
+      const status = await getCurrentMonthLimitStatus(familyId);
 
       return ctx.reply(
         formatLimitStatusMessage(status),
@@ -69,10 +71,11 @@ function registerLimitHandlers(bot) {
     }
 
     try {
-      await removeCurrentMonthLimit();
+      const familyId = ctx.state.member.family_id;
+      await removeCurrentMonthLimit(familyId);
       clearUserState(ctx.from.id);
 
-      const status = await getCurrentMonthLimitStatus();
+      const status = await getCurrentMonthLimitStatus(familyId);
 
       await ctx.answerCbQuery("Лимит удалён");
       return ctx.editMessageText(formatLimitStatusMessage(status));

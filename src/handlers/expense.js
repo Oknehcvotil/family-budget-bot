@@ -1,4 +1,4 @@
-const { userIsAllowed, getUserName } = require("../utils/auth");
+const { userIsAllowed, userIsAdmin, getUserName } = require("../utils/auth");
 const { setUserState } = require("../state/userState");
 const { getExpenseInputHint } = require("../constants/messages");
 const { formatExpensePreview } = require("../utils/formatters");
@@ -15,7 +15,7 @@ function registerExpenseHandlers(bot) {
     setUserState(ctx.from.id, { mode: "waiting_expense_input" });
     return ctx.reply(
       getExpenseInputHint(getUserName(ctx)),
-      getMainMenuKeyboard(ctx.from.id),
+      getMainMenuKeyboard({ isAdmin: userIsAdmin(ctx) }),
     );
   });
 
@@ -27,7 +27,7 @@ function registerExpenseHandlers(bot) {
     setUserState(ctx.from.id, { mode: "waiting_expense_input" });
     return ctx.reply(
       getExpenseInputHint(getUserName(ctx)),
-      getMainMenuKeyboard(ctx.from.id),
+      getMainMenuKeyboard({ isAdmin: userIsAdmin(ctx) }),
     );
   });
 
@@ -37,7 +37,8 @@ function registerExpenseHandlers(bot) {
     }
 
     try {
-      const lastExpense = await getLastUserExpense(ctx.from.id);
+      const familyId = ctx.state.member.family_id;
+      const lastExpense = await getLastUserExpense(familyId, ctx.from.id);
 
       if (!lastExpense) {
         return ctx.reply("❌ У тебя нет расходов для удаления");
@@ -59,7 +60,8 @@ function registerExpenseHandlers(bot) {
     }
 
     try {
-      const lastExpense = await getLastUserExpense(ctx.from.id);
+      const familyId = ctx.state.member.family_id;
+      const lastExpense = await getLastUserExpense(familyId, ctx.from.id);
 
       if (!lastExpense) {
         return ctx.reply("❌ У тебя нет расходов для удаления");

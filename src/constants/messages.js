@@ -23,6 +23,9 @@ function getStartMessage(userName) {
 /year - выбрать год кнопками
 /all - отчет за все время
 /limit - лимит на текущий месяц
+/invite - пригласить члена семьи (для админа)
+/members - удалить участника семьи (для админа)
+/leave - выйти из семьи
 /help - справка
 
 Как добавить расход:
@@ -46,6 +49,9 @@ function getHelpMessage(userName) {
 /year - выбрать год кнопками
 /all - отчет за все время
 /limit - лимит на текущий месяц
+/invite - пригласить члена семьи (для админа)
+/members - удалить участника семьи (для админа)
+/leave - выйти из семьи
 
 ${getExpenseInputHint(userName)}
 

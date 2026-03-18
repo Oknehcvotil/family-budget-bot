@@ -63,7 +63,8 @@ function registerActionHandlers(bot) {
     setUserState(ctx.from.id, { mode: "month_select" });
     await ctx.answerCbQuery();
 
-    const years = await getAvailableYears();
+    const familyId = ctx.state.member.family_id;
+    const years = await getAvailableYears(familyId);
 
     if (!years.length) {
       return ctx.editMessageText(
@@ -73,7 +74,7 @@ function registerActionHandlers(bot) {
 
     return ctx.editMessageText(
       "Выбери год для отчета по месяцам:",
-      await getYearsKeyboard("pick_month_year"),
+      await getYearsKeyboard("pick_month_year", familyId),
     );
   });
 
@@ -171,12 +172,14 @@ function registerActionHandlers(bot) {
     }
 
     const user = getUser(ctx);
+    const familyId = ctx.state.member.family_id;
     const userName = user?.name || "Пользователь";
     const actionWord = getActionWord(user);
     const { amount, comment } = state.pendingExpense;
 
     try {
       const savedExpense = await createExpense({
+        familyId,
         userId: ctx.from.id,
         userName,
         amount,
@@ -210,9 +213,10 @@ function registerActionHandlers(bot) {
     }
 
     const expenseId = Number(ctx.match[1]);
+    const familyId = ctx.state.member.family_id;
 
     try {
-      const expense = await getUserExpenseById(expenseId, ctx.from.id);
+      const expense = await getUserExpenseById(familyId, expenseId, ctx.from.id);
 
       if (!expense) {
         await ctx.answerCbQuery("Расход не найден");
@@ -237,9 +241,10 @@ function registerActionHandlers(bot) {
     }
 
     const expenseId = Number(ctx.match[1]);
+    const familyId = ctx.state.member.family_id;
 
     try {
-      const deleted = await removeUserExpenseById(expenseId, ctx.from.id);
+      const deleted = await removeUserExpenseById(familyId, expenseId, ctx.from.id);
 
       if (!deleted) {
         await ctx.answerCbQuery("Расход уже удалён или не найден");
@@ -274,6 +279,7 @@ function registerActionHandlers(bot) {
       );
 
       if (action === "all") {
+        const familyId = ctx.state.member.family_id;
         clearUserState(ctx.from.id);
 
         await ctx.editMessageText(
@@ -281,12 +287,13 @@ function registerActionHandlers(bot) {
         );
 
         if (reportType === "full") {
-          return sendFullAllTimeReport(ctx);
+          return sendFullAllTimeReport(ctx, familyId);
         }
 
-        return sendShortAllTimeReport(ctx);
+        return sendShortAllTimeReport(ctx, familyId);
       }
 
+      const familyId = ctx.state.member.family_id;
       const { label, startDate, endDate } = state;
 
       clearUserState(ctx.from.id);
@@ -296,10 +303,10 @@ function registerActionHandlers(bot) {
       );
 
       if (reportType === "full") {
-        return sendFullPeriodReport(ctx, label, startDate, endDate);
+        return sendFullPeriodReport(ctx, familyId, label, startDate, endDate);
       }
 
-      return sendShortPeriodReport(ctx, label, startDate, endDate);
+      return sendShortPeriodReport(ctx, familyId, label, startDate, endDate);
     },
   );
 }

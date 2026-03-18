@@ -16,15 +16,15 @@ const {
   formatUserStats,
 } = require("../utils/formatters");
 
-async function getPeriodReportData(startDate, endDate) {
+async function getPeriodReportData(familyId, startDate, endDate) {
   const start = formatDateForDb(startDate);
   const end = formatDateForDb(endDate);
 
   const [expenses, total, categoryStats, userStats] = await Promise.all([
-    getExpensesByPeriod(start, end),
-    getTotalByPeriod(start, end),
-    getCategoryStatsByPeriod(start, end),
-    getUserStatsByPeriod(start, end),
+    getExpensesByPeriod(familyId, start, end),
+    getTotalByPeriod(familyId, start, end),
+    getCategoryStatsByPeriod(familyId, start, end),
+    getUserStatsByPeriod(familyId, start, end),
   ]);
 
   return {
@@ -35,12 +35,12 @@ async function getPeriodReportData(startDate, endDate) {
   };
 }
 
-async function getAllTimeReportData() {
+async function getAllTimeReportData(familyId) {
   const [expenses, total, categoryStats, userStats] = await Promise.all([
-    getAllExpenses(),
-    getAllTotal(),
-    getAllCategoryStats(),
-    getAllUserStats(),
+    getAllExpenses(familyId),
+    getAllTotal(familyId),
+    getAllCategoryStats(familyId),
+    getAllUserStats(familyId),
   ]);
 
   return {
@@ -51,10 +51,10 @@ async function getAllTimeReportData() {
   };
 }
 
-async function sendFullPeriodReport(ctx, label, startDate, endDate) {
+async function sendFullPeriodReport(ctx, familyId, label, startDate, endDate) {
   try {
     const { expenses, total, categoryStats, userStats } =
-      await getPeriodReportData(startDate, endDate);
+      await getPeriodReportData(familyId, startDate, endDate);
 
     const message =
       `📊 Отчет ${label}\n\n` +
@@ -70,9 +70,10 @@ async function sendFullPeriodReport(ctx, label, startDate, endDate) {
   }
 }
 
-async function sendShortPeriodReport(ctx, label, startDate, endDate) {
+async function sendShortPeriodReport(ctx, familyId, label, startDate, endDate) {
   try {
     const { total, categoryStats, userStats } = await getPeriodReportData(
+      familyId,
       startDate,
       endDate,
     );
@@ -90,10 +91,10 @@ async function sendShortPeriodReport(ctx, label, startDate, endDate) {
   }
 }
 
-async function sendFullAllTimeReport(ctx) {
+async function sendFullAllTimeReport(ctx, familyId) {
   try {
     const { expenses, total, categoryStats, userStats } =
-      await getAllTimeReportData();
+      await getAllTimeReportData(familyId);
 
     const message =
       `📊 Отчет за все время\n\n` +
@@ -109,9 +110,9 @@ async function sendFullAllTimeReport(ctx) {
   }
 }
 
-async function sendShortAllTimeReport(ctx) {
+async function sendShortAllTimeReport(ctx, familyId) {
   try {
-    const { total, categoryStats, userStats } = await getAllTimeReportData();
+    const { total, categoryStats, userStats } = await getAllTimeReportData(familyId);
 
     const message =
       `📊 Короткий отчет за все время\n\n` +

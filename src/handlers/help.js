@@ -1,4 +1,4 @@
-const { userIsAllowed, getUserName } = require("../utils/auth");
+const { userIsAllowed, userIsAdmin, getUserName } = require("../utils/auth");
 const { getHelpMessage } = require("../constants/messages");
 const { getMainMenuKeyboard } = require("../keyboards/menu");
 
@@ -10,7 +10,7 @@ function registerHelpHandlers(bot) {
 
     return ctx.reply(
       getHelpMessage(getUserName(ctx)),
-      getMainMenuKeyboard(ctx.from.id),
+      getMainMenuKeyboard({ isAdmin: userIsAdmin(ctx) }),
     );
   });
 
@@ -21,7 +21,7 @@ function registerHelpHandlers(bot) {
 
     return ctx.reply(
       getHelpMessage(getUserName(ctx)),
-      getMainMenuKeyboard(ctx.from.id),
+      getMainMenuKeyboard({ isAdmin: userIsAdmin(ctx) }),
     );
   });
 }
